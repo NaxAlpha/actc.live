@@ -1,0 +1,108 @@
+{
+  "name": "@actc/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "author": "ACTC",
+  "type": "module",
+  "description": "ACTC YouTube loop streamer desktop app",
+  "main": "dist/main/index.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:shared\" \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:electron\"",
+    "dev:shared": "npm run dev -w @actc/shared",
+    "dev:renderer": "vite",
+    "dev:main": "tsup --config tsup.main.config.ts --watch",
+    "dev:preload": "tsup --config tsup.preload.config.ts --watch",
+    "dev:electron": "wait-on dist/main/index.cjs dist/preload/index.cjs tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon .",
+    "build": "npm run clean && npm run build:shared && npm run build:main && npm run build:preload && npm run build:renderer",
+    "build:shared": "npm run build -w @actc/shared",
+    "build:main": "tsup --config tsup.main.config.ts",
+    "build:preload": "tsup --config tsup.preload.config.ts",
+    "build:renderer": "vite build",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('release',{recursive:true,force:true})\"",
+    "lint": "npm run typecheck",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "e2e": "playwright test --config playwright.config.ts",
+    "prepare:ffmpeg": "node scripts/prepare-ffmpeg-assets.mjs",
+    "package": "npm run build && npm run prepare:ffmpeg && electron-builder --publish never"
+  },
+  "build": {
+    "appId": "live.actc.desktop",
+    "electronVersion": "33.2.1",
+    "productName": "ACTC Live",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/ffmpeg",
+        "to": "ffmpeg",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/licenses",
+        "to": "licenses",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "category": "public.app-category.video"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@actc/shared": "0.1.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "googleapis": "^146.0.0",
+    "keytar": "^7.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.11.0",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^18.3.13",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.9",
+    "@vitejs/plugin-react": "^4.3.4",
+    "app-builder-bin": "^4.2.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "33.2.1",
+    "electron-builder": "^25.1.8",
+    "electronmon": "^2.0.3",
+    "jsdom": "^25.0.1",
+    "tsup": "^8.3.5",
+    "vite": "^6.0.1",
+    "vitest": "^2.1.8",
+    "wait-on": "^8.0.1"
+  }
+}
