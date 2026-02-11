@@ -30,6 +30,8 @@ test("desktop app launches smoke", async () => {
   const page = await electronApp.firstWindow();
   await expect.poll(async () => electronApp.windows().length, { timeout: 20_000 }).toBeGreaterThan(0);
   await expect(page).toBeTruthy();
+  await expect(page.locator(".wizard-shell")).toBeVisible();
+  await expect(page.getByText("ACTC Live Setup")).toBeVisible();
 
   await electronApp.close();
 });

@@ -12,7 +12,11 @@ export const IPC_CHANNELS = {
   SESSION_GET_STATE: "session.getState",
   SESSION_SUBSCRIBE_EVENTS: "session.subscribeEvents",
   APP_PICK_VIDEO_FILE: "app.pickVideoFile",
-  SESSION_EVENT_STREAM: "session.event"
+  SESSION_EVENT_STREAM: "session.event",
+  WINDOW_MINIMIZE: "window.minimize",
+  WINDOW_TOGGLE_MAXIMIZE: "window.toggleMaximize",
+  WINDOW_CLOSE: "window.close",
+  WINDOW_GET_STATE: "window.getState"
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
