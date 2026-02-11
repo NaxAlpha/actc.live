@@ -162,6 +162,56 @@ export const registerIpcHandlers = (context: AppContext, mainWindow: BrowserWind
     })
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.WINDOW_MINIMIZE,
+    wrap(async () => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.minimize();
+      }
+
+      return { success: true };
+    })
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WINDOW_TOGGLE_MAXIMIZE,
+    wrap(async () => {
+      if (mainWindow.isDestroyed()) {
+        return { maximized: false };
+      }
+
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+
+      return { maximized: mainWindow.isMaximized() };
+    })
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WINDOW_CLOSE,
+    wrap(async () => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.close();
+      }
+
+      return { success: true };
+    })
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WINDOW_GET_STATE,
+    wrap(async () => {
+      return {
+        maximized: !mainWindow.isDestroyed() && mainWindow.isMaximized(),
+        fullscreenable: !mainWindow.isDestroyed() && mainWindow.isFullScreenable(),
+        transparencyEnabled: process.env.ACTC_DISABLE_WINDOW_TRANSPARENCY !== "1"
+      };
+    })
+  );
+
   const cleanup = (): void => {
     for (const [sessionId, unsubscribe] of sessionUnsubscribers.entries()) {
       unsubscribe();
@@ -181,6 +231,10 @@ export const registerIpcHandlers = (context: AppContext, mainWindow: BrowserWind
     ipcMain.removeHandler(IPC_CHANNELS.SESSION_GET_STATE);
     ipcMain.removeHandler(IPC_CHANNELS.SESSION_SUBSCRIBE_EVENTS);
     ipcMain.removeHandler(IPC_CHANNELS.APP_PICK_VIDEO_FILE);
+    ipcMain.removeHandler(IPC_CHANNELS.WINDOW_MINIMIZE);
+    ipcMain.removeHandler(IPC_CHANNELS.WINDOW_TOGGLE_MAXIMIZE);
+    ipcMain.removeHandler(IPC_CHANNELS.WINDOW_CLOSE);
+    ipcMain.removeHandler(IPC_CHANNELS.WINDOW_GET_STATE);
   };
 
   return cleanup;

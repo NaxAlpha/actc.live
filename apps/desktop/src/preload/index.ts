@@ -54,6 +54,16 @@ export type DesktopApi = {
   app: {
     pickVideoFile: () => Promise<string | null>;
   };
+  window: {
+    minimize: () => Promise<void>;
+    toggleMaximize: () => Promise<{ maximized: boolean }>;
+    close: () => Promise<void>;
+    getState: () => Promise<{
+      maximized: boolean;
+      fullscreenable: boolean;
+      transparencyEnabled: boolean;
+    }>;
+  };
 };
 
 const api: DesktopApi = {
@@ -95,6 +105,16 @@ const api: DesktopApi = {
   },
   app: {
     pickVideoFile: () => ipcRenderer.invoke(IPC_CHANNELS.APP_PICK_VIDEO_FILE)
+  },
+  window: {
+    minimize: async () => {
+      await ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE);
+    },
+    toggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_TOGGLE_MAXIMIZE),
+    close: async () => {
+      await ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE);
+    },
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_GET_STATE)
   }
 };
 
