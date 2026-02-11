@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 
 const platform = process.platform;
 const arch = process.arch;
-const rootDir = new URL("..", import.meta.url).pathname;
+const rootDir = fileURLToPath(new URL("..", import.meta.url));
 const targetDir = path.join(rootDir, "resources", "ffmpeg", `${platform}-${arch}`);
 
 fs.rmSync(targetDir, { recursive: true, force: true });
