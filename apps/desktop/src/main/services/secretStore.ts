@@ -25,7 +25,11 @@ class FileFallbackSecretStore implements SecretStore {
   async setProfileTokens(profileId: string, tokens: StoredOAuthTokens): Promise<void> {
     const current = this.readStore();
     current[profileId] = tokens;
-    fs.writeFileSync(this.fallbackFilePath, JSON.stringify(current, null, 2), "utf8");
+    fs.mkdirSync(this.userDataDir, { recursive: true });
+    fs.writeFileSync(this.fallbackFilePath, JSON.stringify(current, null, 2), {
+      encoding: "utf8",
+      mode: 0o600
+    });
   }
 
   async getProfileTokens(profileId: string): Promise<StoredOAuthTokens | null> {
@@ -36,7 +40,11 @@ class FileFallbackSecretStore implements SecretStore {
   async deleteProfileTokens(profileId: string): Promise<void> {
     const current = this.readStore();
     delete current[profileId];
-    fs.writeFileSync(this.fallbackFilePath, JSON.stringify(current, null, 2), "utf8");
+    fs.mkdirSync(this.userDataDir, { recursive: true });
+    fs.writeFileSync(this.fallbackFilePath, JSON.stringify(current, null, 2), {
+      encoding: "utf8",
+      mode: 0o600
+    });
   }
 
   private readStore(): Record<string, StoredOAuthTokens> {
@@ -77,14 +85,64 @@ class KeytarSecretStore implements SecretStore {
   }
 }
 
+class ResilientSecretStore implements SecretStore {
+  constructor(
+    private readonly primary: KeytarSecretStore | null,
+    private readonly fallback: FileFallbackSecretStore
+  ) {}
+
+  async setProfileTokens(profileId: string, tokens: StoredOAuthTokens): Promise<void> {
+    if (!this.primary) {
+      await this.fallback.setProfileTokens(profileId, tokens);
+      return;
+    }
+
+    try {
+      await this.primary.setProfileTokens(profileId, tokens);
+    } catch (_error) {
+      await this.fallback.setProfileTokens(profileId, tokens);
+    }
+  }
+
+  async getProfileTokens(profileId: string): Promise<StoredOAuthTokens | null> {
+    if (this.primary) {
+      try {
+        const value = await this.primary.getProfileTokens(profileId);
+        if (value) {
+          return value;
+        }
+      } catch (_error) {
+        // Fall through to file fallback.
+      }
+    }
+
+    return this.fallback.getProfileTokens(profileId);
+  }
+
+  async deleteProfileTokens(profileId: string): Promise<void> {
+    if (this.primary) {
+      try {
+        await this.primary.deleteProfileTokens(profileId);
+      } catch (_error) {
+        // Continue cleanup in fallback.
+      }
+    }
+
+    await this.fallback.deleteProfileTokens(profileId);
+  }
+}
+
 export const createSecretStore = async (
   serviceName: string,
   userDataDir: string
 ): Promise<SecretStore> => {
+  const fallback = new FileFallbackSecretStore(userDataDir);
+
   try {
     const keytarModule = await import("keytar");
-    return new KeytarSecretStore(serviceName, keytarModule.default ?? keytarModule);
+    const primary = new KeytarSecretStore(serviceName, keytarModule.default ?? keytarModule);
+    return new ResilientSecretStore(primary, fallback);
   } catch (_error) {
-    return new FileFallbackSecretStore(userDataDir);
+    return fallback;
   }
 };

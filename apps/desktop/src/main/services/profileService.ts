@@ -70,26 +70,32 @@ export class ProfileService {
     const id = existing?.id ?? randomUUID();
     const createdAt = existing?.created_at ?? now;
 
-    this.db.transaction(() => {
-      if (existing) {
-        this.db.run(
-          "UPDATE profiles SET label = ?, channel_title = ?, updated_at = ? WHERE id = ?",
-          [input.label, input.channelTitle, now, id]
-        );
-      } else {
-        this.db.run(
-          "INSERT INTO profiles (id, label, channel_id, channel_title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-          [id, input.label, input.channelId, input.channelTitle, createdAt, now]
-        );
-      }
-
-      this.db.run(
-        "INSERT OR REPLACE INTO profile_secrets (profile_id, keychain_ref, created_at) VALUES (?, ?, ?)",
-        [id, id, now]
-      );
-    });
-
     await this.secretStore.setProfileTokens(id, input.tokens);
+    try {
+      this.db.transaction(() => {
+        if (existing) {
+          this.db.run(
+            "UPDATE profiles SET label = ?, channel_title = ?, updated_at = ? WHERE id = ?",
+            [input.label, input.channelTitle, now, id]
+          );
+        } else {
+          this.db.run(
+            "INSERT INTO profiles (id, label, channel_id, channel_title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [id, input.label, input.channelId, input.channelTitle, createdAt, now]
+          );
+        }
+
+        this.db.run(
+          "INSERT OR REPLACE INTO profile_secrets (profile_id, keychain_ref, created_at) VALUES (?, ?, ?)",
+          [id, id, now]
+        );
+      });
+    } catch (error) {
+      if (!existing) {
+        await this.secretStore.deleteProfileTokens(id).catch(() => undefined);
+      }
+      throw error;
+    }
 
     return {
       id,

@@ -119,7 +119,14 @@ export const App = (): JSX.Element => {
           setSelectedBroadcastId((current) => current || broadcasts[0]!.id);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load reusable broadcasts");
+        const message = err instanceof Error ? err.message : "Failed to load reusable broadcasts";
+        if (message.includes("No OAuth tokens found")) {
+          setError(
+            "Selected profile is missing OAuth tokens. Click Remove, then run OAuth Sign-In again for this channel."
+          );
+        } else {
+          setError(message);
+        }
       }
     })();
   }, [selectedProfileId]);

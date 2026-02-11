@@ -176,7 +176,9 @@ export class OauthService {
 
     const tokens = await this.profileService.getProfileTokens(profileId);
     if (!tokens?.refreshToken && !tokens?.accessToken) {
-      throw new Error(`No OAuth tokens found for profile ${profileId}`);
+      throw new Error(
+        `No OAuth tokens found for profile ${profileId}. This profile is missing saved auth tokens. Remove it and run OAuth Sign-In again.`
+      );
     }
 
     const credentials: {

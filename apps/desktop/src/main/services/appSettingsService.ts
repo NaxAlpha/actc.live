@@ -100,33 +100,26 @@ export class AppSettingsService {
     }
 
     if (this.keytar) {
-      await this.keytar.setPassword(this.serviceName, ACCOUNT_CLIENT_ID, clientId);
-      await this.keytar.setPassword(this.serviceName, ACCOUNT_CLIENT_SECRET, clientSecret);
-      return;
+      try {
+        await this.keytar.setPassword(this.serviceName, ACCOUNT_CLIENT_ID, clientId);
+        await this.keytar.setPassword(this.serviceName, ACCOUNT_CLIENT_SECRET, clientSecret);
+        return;
+      } catch (_error) {
+        // Fall through to file fallback.
+      }
     }
 
-    fs.mkdirSync(this.userDataDir, { recursive: true });
-    fs.writeFileSync(
-      this.fallbackFilePath,
-      JSON.stringify(
-        {
-          clientId,
-          clientSecret
-        },
-        null,
-        2
-      ),
-      {
-        encoding: "utf8",
-        mode: 0o600
-      }
-    );
+    this.writeFallback({ clientId, clientSecret });
   }
 
   async clearOAuthCredentials(): Promise<void> {
     if (this.keytar) {
-      await this.keytar.deletePassword(this.serviceName, ACCOUNT_CLIENT_ID);
-      await this.keytar.deletePassword(this.serviceName, ACCOUNT_CLIENT_SECRET);
+      try {
+        await this.keytar.deletePassword(this.serviceName, ACCOUNT_CLIENT_ID);
+        await this.keytar.deletePassword(this.serviceName, ACCOUNT_CLIENT_SECRET);
+      } catch (_error) {
+        // Continue fallback cleanup.
+      }
     }
 
     fs.rmSync(this.fallbackFilePath, { force: true });
@@ -134,19 +127,21 @@ export class AppSettingsService {
 
   private async getStoredOAuthCredentials(): Promise<OAuthCredentials | null> {
     if (this.keytar) {
-      const [clientId, clientSecret] = await Promise.all([
-        this.keytar.getPassword(this.serviceName, ACCOUNT_CLIENT_ID),
-        this.keytar.getPassword(this.serviceName, ACCOUNT_CLIENT_SECRET)
-      ]);
+      try {
+        const [clientId, clientSecret] = await Promise.all([
+          this.keytar.getPassword(this.serviceName, ACCOUNT_CLIENT_ID),
+          this.keytar.getPassword(this.serviceName, ACCOUNT_CLIENT_SECRET)
+        ]);
 
-      if (clientId && clientSecret) {
-        return {
-          clientId,
-          clientSecret
-        };
+        if (clientId && clientSecret) {
+          return {
+            clientId,
+            clientSecret
+          };
+        }
+      } catch (_error) {
+        // Fall through to file fallback.
       }
-
-      return null;
     }
 
     if (!fs.existsSync(this.fallbackFilePath)) {
@@ -164,5 +159,24 @@ export class AppSettingsService {
       clientId: parsed.clientId,
       clientSecret: parsed.clientSecret
     };
+  }
+
+  private writeFallback(input: OAuthCredentials): void {
+    fs.mkdirSync(this.userDataDir, { recursive: true });
+    fs.writeFileSync(
+      this.fallbackFilePath,
+      JSON.stringify(
+        {
+          clientId: input.clientId,
+          clientSecret: input.clientSecret
+        },
+        null,
+        2
+      ),
+      {
+        encoding: "utf8",
+        mode: 0o600
+      }
+    );
   }
 }
