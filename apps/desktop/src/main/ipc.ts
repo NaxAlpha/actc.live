@@ -28,6 +28,41 @@ export const registerIpcHandlers = (context: AppContext, mainWindow: BrowserWind
     };
 
   ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_GET_OAUTH_SETUP,
+    wrap(async () => {
+      return context.appSettingsService.getOAuthSetupStatus();
+    })
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_SAVE_OAUTH_SETUP,
+    wrap(async (_event, payload: unknown) => {
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        typeof (payload as { clientId?: unknown }).clientId !== "string" ||
+        typeof (payload as { clientSecret?: unknown }).clientSecret !== "string"
+      ) {
+        throw new Error("Invalid OAuth settings payload");
+      }
+
+      const clientId = (payload as { clientId: string }).clientId.trim();
+      const clientSecret = (payload as { clientSecret: string }).clientSecret.trim();
+
+      await context.appSettingsService.setOAuthCredentials({ clientId, clientSecret });
+      return context.appSettingsService.getOAuthSetupStatus();
+    })
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_CLEAR_OAUTH_SETUP,
+    wrap(async () => {
+      await context.appSettingsService.clearOAuthCredentials();
+      return context.appSettingsService.getOAuthSetupStatus();
+    })
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.AUTH_SIGN_IN,
     wrap(async (_event, profileLabel: string) => {
       return context.oauthService.signIn(profileLabel);
@@ -133,6 +168,9 @@ export const registerIpcHandlers = (context: AppContext, mainWindow: BrowserWind
       sessionUnsubscribers.delete(sessionId);
     }
 
+    ipcMain.removeHandler(IPC_CHANNELS.SETTINGS_GET_OAUTH_SETUP);
+    ipcMain.removeHandler(IPC_CHANNELS.SETTINGS_SAVE_OAUTH_SETUP);
+    ipcMain.removeHandler(IPC_CHANNELS.SETTINGS_CLEAR_OAUTH_SETUP);
     ipcMain.removeHandler(IPC_CHANNELS.AUTH_SIGN_IN);
     ipcMain.removeHandler(IPC_CHANNELS.AUTH_LIST_PROFILES);
     ipcMain.removeHandler(IPC_CHANNELS.AUTH_REMOVE_PROFILE);

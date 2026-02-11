@@ -1,3 +1,4 @@
+import { AppSettingsService } from "./appSettingsService.js";
 import { DatabaseService } from "./databaseService.js";
 import { FfmpegService } from "./ffmpegService.js";
 import { OauthService } from "./oauthService.js";
@@ -10,6 +11,7 @@ import { YoutubeService } from "./youtubeService.js";
 
 export type AppContext = {
   db: DatabaseService;
+  appSettingsService: AppSettingsService;
   profileService: ProfileService;
   oauthService: OauthService;
   youtubeService: YoutubeService;
@@ -21,9 +23,15 @@ export const createAppContext = async (): Promise<AppContext> => {
   const db = new DatabaseService(runtimePaths.dbPath);
   await db.init();
 
+  const appSettingsService = new AppSettingsService(
+    runtimePaths.userDataDir,
+    "actc.live.app-settings"
+  );
+  await appSettingsService.init();
+
   const secretStore = await createSecretStore("actc.live.oauth", runtimePaths.userDataDir);
   const profileService = new ProfileService(db, secretStore);
-  const oauthService = new OauthService(profileService);
+  const oauthService = new OauthService(profileService, appSettingsService);
   const youtubeService = new YoutubeService(oauthService);
   const sessionRepository = new SessionRepository(db);
   const ffmpegService = new FfmpegService({ ffmpegResourceDir: runtimePaths.ffmpegResourceDir });
@@ -37,6 +45,7 @@ export const createAppContext = async (): Promise<AppContext> => {
 
   return {
     db,
+    appSettingsService,
     profileService,
     oauthService,
     youtubeService,

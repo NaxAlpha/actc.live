@@ -9,6 +9,12 @@ import type {
   SessionSummary
 } from "@actc/shared";
 
+type OAuthSetupState = {
+  configured: boolean;
+  source: "saved" | "env" | "none";
+  clientIdHint?: string | undefined;
+};
+
 const toLocalDatetimeInputValue = (iso: string): string => {
   const date = new Date(iso);
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -33,6 +39,14 @@ const nowPlusMinutes = (minutes: number): string => {
 };
 
 export const App = (): JSX.Element => {
+  const [oauthSetup, setOauthSetup] = useState<OAuthSetupState>({
+    configured: false,
+    source: "none"
+  });
+  const [showCredentialSetup, setShowCredentialSetup] = useState<boolean>(false);
+  const [oauthClientId, setOauthClientId] = useState<string>("");
+  const [oauthClientSecret, setOauthClientSecret] = useState<string>("");
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [profileLabel, setProfileLabel] = useState<string>("Main Channel");
@@ -79,8 +93,16 @@ export const App = (): JSX.Element => {
   };
 
   useEffect(() => {
-    void loadProfiles();
+    void (async () => {
+      await Promise.all([loadProfiles(), loadOAuthSetup()]);
+    })();
   }, []);
+
+  const loadOAuthSetup = async (): Promise<void> => {
+    const setup = await window.desktopApi.settings.getOAuthSetup();
+    setOauthSetup(setup);
+    setShowCredentialSetup(!setup.configured);
+  };
 
   useEffect(() => {
     if (!selectedProfileId) {
@@ -142,6 +164,10 @@ export const App = (): JSX.Element => {
     setBusy(true);
 
     try {
+      if (!oauthSetup.configured) {
+        throw new Error("Set OAuth credentials before signing in");
+      }
+
       if (!profileLabel.trim()) {
         throw new Error("Profile label is required");
       }
@@ -152,6 +178,49 @@ export const App = (): JSX.Element => {
       setSelectedProfileId(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveOAuthSetup = async (): Promise<void> => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      if (!oauthClientId.trim() || !oauthClientSecret.trim()) {
+        throw new Error("Client ID and Client Secret are required");
+      }
+
+      const setup = await window.desktopApi.settings.saveOAuthSetup({
+        clientId: oauthClientId.trim(),
+        clientSecret: oauthClientSecret.trim()
+      });
+
+      setOauthSetup(setup);
+      setOauthClientSecret("");
+      setShowCredentialSetup(false);
+      setNotice("OAuth credentials saved securely");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save OAuth credentials");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleClearOAuthSetup = async (): Promise<void> => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const setup = await window.desktopApi.settings.clearOAuthSetup();
+      setOauthSetup(setup);
+      setShowCredentialSetup(true);
+      setNotice("Saved OAuth credentials removed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear OAuth credentials");
     } finally {
       setBusy(false);
     }
@@ -308,6 +377,37 @@ export const App = (): JSX.Element => {
 
       <main className="grid">
         <section className="panel">
+          <h2>0. API Credentials</h2>
+          <p className="muted">
+            Status:{" "}
+            {oauthSetup.configured
+              ? `Configured (${oauthSetup.source === "env" ? "Environment Variables" : "Saved in App"})`
+              : "Not configured"}
+          </p>
+          {oauthSetup.clientIdHint ? (
+            <p className="muted">Client ID: {oauthSetup.clientIdHint}</p>
+          ) : null}
+          <div className="row">
+            <button disabled={busy} onClick={() => setShowCredentialSetup(true)}>
+              {oauthSetup.configured ? "Edit Credentials" : "Set Credentials"}
+            </button>
+            <button
+              disabled={busy || !oauthSetup.configured || oauthSetup.source === "env"}
+              onClick={() => void handleClearOAuthSetup()}
+            >
+              Clear Saved
+            </button>
+          </div>
+          <p className="muted">
+            Need help? Open{" "}
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">
+              Google Cloud Credentials
+            </a>{" "}
+            and create an OAuth Client ID (Desktop App), then enable YouTube Data API v3.
+          </p>
+        </section>
+
+        <section className="panel">
           <h2>1. Channel Profiles</h2>
           <label>
             Profile Label
@@ -318,7 +418,7 @@ export const App = (): JSX.Element => {
             />
           </label>
           <div className="row">
-            <button disabled={busy} onClick={() => void handleSignIn()}>
+            <button disabled={busy || !oauthSetup.configured} onClick={() => void handleSignIn()}>
               OAuth Sign-In
             </button>
             <button disabled={busy || !selectedProfileId} onClick={() => void handleRemoveProfile()}>
@@ -531,6 +631,51 @@ export const App = (): JSX.Element => {
           </div>
         </section>
       </main>
+
+      {showCredentialSetup ? (
+        <div className="overlay" role="dialog" aria-modal="true">
+          <div className="overlay-card">
+            <h2>YouTube OAuth Credentials Setup</h2>
+            <p className="muted">
+              This app needs your Google OAuth Client ID + Client Secret for YouTube API access.
+            </p>
+            <ol className="instructions">
+              <li>Go to Google Cloud Console for your project.</li>
+              <li>Enable YouTube Data API v3.</li>
+              <li>Create OAuth credentials with application type set to Desktop App.</li>
+              <li>Copy the generated Client ID and Client Secret into the fields below.</li>
+            </ol>
+            <label>
+              OAuth Client ID
+              <input
+                value={oauthClientId}
+                onChange={(event) => setOauthClientId(event.target.value)}
+                placeholder="1234567890-xxxx.apps.googleusercontent.com"
+              />
+            </label>
+            <label>
+              OAuth Client Secret
+              <input
+                value={oauthClientSecret}
+                onChange={(event) => setOauthClientSecret(event.target.value)}
+                type="password"
+                placeholder="GOCSPX-..."
+              />
+            </label>
+            <div className="row">
+              <button disabled={busy} onClick={() => void handleSaveOAuthSetup()}>
+                Save Credentials
+              </button>
+              <button disabled={busy || !oauthSetup.configured} onClick={() => setShowCredentialSetup(false)}>
+                Close
+              </button>
+            </div>
+            <p className="muted">
+              Saved credentials are stored via OS keychain when available. Environment variables still override app-saved values.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className="toast toast-error">{error}</div> : null}
       {notice ? <div className="toast toast-ok">{notice}</div> : null}

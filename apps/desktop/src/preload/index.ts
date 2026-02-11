@@ -13,6 +13,23 @@ import type {
 import { IPC_CHANNELS } from "../main/ipcChannels.js";
 
 export type DesktopApi = {
+  settings: {
+    getOAuthSetup: () => Promise<{
+      configured: boolean;
+      source: "saved" | "env" | "none";
+      clientIdHint?: string | undefined;
+    }>;
+    saveOAuthSetup: (payload: { clientId: string; clientSecret: string }) => Promise<{
+      configured: boolean;
+      source: "saved" | "env" | "none";
+      clientIdHint?: string | undefined;
+    }>;
+    clearOAuthSetup: () => Promise<{
+      configured: boolean;
+      source: "saved" | "env" | "none";
+      clientIdHint?: string | undefined;
+    }>;
+  };
   auth: {
     signIn: (profileLabel: string) => Promise<Profile>;
     listProfiles: () => Promise<Profile[]>;
@@ -40,6 +57,11 @@ export type DesktopApi = {
 };
 
 const api: DesktopApi = {
+  settings: {
+    getOAuthSetup: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_OAUTH_SETUP),
+    saveOAuthSetup: (payload) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_OAUTH_SETUP, payload),
+    clearOAuthSetup: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLEAR_OAUTH_SETUP)
+  },
   auth: {
     signIn: (profileLabel) => ipcRenderer.invoke(IPC_CHANNELS.AUTH_SIGN_IN, profileLabel),
     listProfiles: () => ipcRenderer.invoke(IPC_CHANNELS.AUTH_LIST_PROFILES),

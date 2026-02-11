@@ -1,4 +1,7 @@
 export const IPC_CHANNELS = {
+  SETTINGS_GET_OAUTH_SETUP: "settings.getOAuthSetup",
+  SETTINGS_SAVE_OAUTH_SETUP: "settings.saveOAuthSetup",
+  SETTINGS_CLEAR_OAUTH_SETUP: "settings.clearOAuthSetup",
   AUTH_SIGN_IN: "auth.signIn",
   AUTH_LIST_PROFILES: "auth.listProfiles",
   AUTH_REMOVE_PROFILE: "auth.removeProfile",

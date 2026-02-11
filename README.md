@@ -8,13 +8,22 @@ Cross-platform Electron desktop app for looping a local video into YouTube Live 
 - `/Users/nax/Documents/actc.live/docs`: architecture and test runbooks
 - `/Users/nax/Documents/actc.live/.github/workflows`: CI pipelines
 
-## Required environment variables
-Set before running OAuth features:
+## OAuth credentials setup
+You now have two ways to configure OAuth credentials:
+
+1. Recommended: set credentials in-app on first launch (`0. API Credentials` panel / setup dialog).
+2. Optional fallback: set environment variables before launch.
 
 ```bash
 export YT_OAUTH_CLIENT_ID="your-google-oauth-client-id"
 export YT_OAUTH_CLIENT_SECRET="your-google-oauth-client-secret"
 ```
+
+In-app setup instructions:
+1. Open Google Cloud Console and enable YouTube Data API v3.
+2. Create OAuth credentials with application type `Desktop App`.
+3. Paste Client ID and Client Secret into the app setup dialog.
+4. Save, then use `OAuth Sign-In` in the app.
 
 ## Install
 ```bash

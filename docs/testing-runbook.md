@@ -2,9 +2,9 @@
 
 ## Local prerequisites
 - Node 20+
-- OAuth env variables:
-  - `YT_OAUTH_CLIENT_ID`
-  - `YT_OAUTH_CLIENT_SECRET`
+- OAuth credentials:
+  - Either configure in app (`API Credentials` setup dialog), or
+  - Provide env variables (`YT_OAUTH_CLIENT_ID`, `YT_OAUTH_CLIENT_SECRET`)
 
 ## Commands
 - Install: `npm ci`

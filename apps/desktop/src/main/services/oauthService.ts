@@ -6,6 +6,7 @@ import { google } from "googleapis";
 
 import type { Profile } from "@actc/shared";
 
+import type { AppSettingsService } from "./appSettingsService.js";
 import type { ProfileService } from "./profileService.js";
 import type { StoredOAuthTokens } from "./secretStore.js";
 
@@ -13,19 +14,6 @@ const OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/youtube",
   "https://www.googleapis.com/auth/youtube.force-ssl"
 ];
-
-const resolveOAuthCredentials = (): { clientId: string; clientSecret: string } => {
-  const clientId = process.env.YT_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.YT_OAUTH_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      "Missing OAuth credentials. Set YT_OAUTH_CLIENT_ID and YT_OAUTH_CLIENT_SECRET in the environment."
-    );
-  }
-
-  return { clientId, clientSecret };
-};
 
 const findOpenPort = async (): Promise<number> => {
   return new Promise((resolve, reject) => {
@@ -108,10 +96,24 @@ const waitForOAuthCode = async (
 };
 
 export class OauthService {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly appSettingsService: AppSettingsService
+  ) {}
+
+  private async resolveOAuthCredentials(): Promise<{ clientId: string; clientSecret: string }> {
+    const configured = await this.appSettingsService.getOAuthCredentials();
+    if (!configured) {
+      throw new Error(
+        "OAuth credentials are not configured. Open the app's API Credentials section and save your Client ID and Client Secret."
+      );
+    }
+
+    return configured;
+  }
 
   async signIn(profileLabel: string): Promise<Profile> {
-    const { clientId, clientSecret } = resolveOAuthCredentials();
+    const { clientId, clientSecret } = await this.resolveOAuthCredentials();
     const port = await findOpenPort();
     const redirectUri = `http://127.0.0.1:${port}/oauth2callback`;
 
@@ -169,7 +171,7 @@ export class OauthService {
   }
 
   async buildOAuthClientForProfile(profileId: string): Promise<InstanceType<typeof google.auth.OAuth2>> {
-    const { clientId, clientSecret } = resolveOAuthCredentials();
+    const { clientId, clientSecret } = await this.resolveOAuthCredentials();
     const oauthClient = new google.auth.OAuth2(clientId, clientSecret);
 
     const tokens = await this.profileService.getProfileTokens(profileId);
