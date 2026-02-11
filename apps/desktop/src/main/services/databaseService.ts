@@ -5,6 +5,7 @@ import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from "sql.j
 export class DatabaseService {
   private sql!: SqlJsStatic;
   private db!: Database;
+  private transactionDepth = 0;
 
   constructor(private readonly dbPath: string) {}
 
@@ -34,7 +35,9 @@ export class DatabaseService {
 
   run(sql: string, params: SqlValue[] = []): void {
     this.db.run(sql, params);
-    this.persist();
+    if (this.transactionDepth === 0) {
+      this.persist();
+    }
   }
 
   query<T>(sql: string, params: SqlValue[] = []): T[] {
@@ -50,12 +53,32 @@ export class DatabaseService {
   }
 
   transaction(fn: () => void): void {
-    this.run("BEGIN TRANSACTION");
+    const isOuterTransaction = this.transactionDepth === 0;
+    if (isOuterTransaction) {
+      this.db.run("BEGIN TRANSACTION");
+    }
+
+    this.transactionDepth += 1;
     try {
       fn();
-      this.run("COMMIT");
+      this.transactionDepth -= 1;
+
+      if (isOuterTransaction) {
+        this.db.run("COMMIT");
+        this.persist();
+      }
     } catch (error) {
-      this.run("ROLLBACK");
+      this.transactionDepth = Math.max(this.transactionDepth - 1, 0);
+
+      if (isOuterTransaction) {
+        try {
+          this.db.run("ROLLBACK");
+        } catch (_rollbackError) {
+          // Preserve original error when rollback fails or transaction already closed.
+        }
+        this.persist();
+      }
+
       throw error;
     }
   }

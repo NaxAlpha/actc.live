@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: path.resolve(__dirname, "src/renderer"),
+  base: "./",
   resolve: {
     alias: {
       "@actc/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts")
