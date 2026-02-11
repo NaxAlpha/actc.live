@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@actc/shared": ["../../packages/shared/src/index.ts"],
+      "@actc/shared/*": ["../../packages/shared/src/*"],
+      "@main/*": ["src/main/*"],
+      "@renderer/*": ["src/renderer/src/*"],
+      "@preload/*": ["src/preload/*"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "tsup.main.config.ts",
+    "tsup.preload.config.ts",
+    "vitest.*.config.ts",
+    "playwright.config.ts"
+  ]
+}
