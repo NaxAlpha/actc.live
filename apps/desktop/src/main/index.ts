@@ -24,10 +24,13 @@ const createMainWindow = (): BrowserWindow => {
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const shouldOpenDevTools = process.env.OPEN_DEVTOOLS === "1";
 
   if (isDev && devServerUrl) {
     void window.loadURL(devServerUrl);
-    window.webContents.openDevTools({ mode: "detach" });
+    if (shouldOpenDevTools) {
+      window.webContents.openDevTools({ mode: "detach" });
+    }
   } else {
     void window.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
   }
