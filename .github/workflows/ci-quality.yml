@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Work around npm optional dependency bug on Linux
+        run: npm install --no-save @rollup/rollup-linux-x64-gnu @ffmpeg-installer/linux-x64 @ffprobe-installer/linux-x64
+
       - name: Build shared package
         run: npm run build -w @actc/shared
 
