@@ -187,7 +187,7 @@ describe("App installer wizard", () => {
 
     render(<App />);
 
-    const signInButton = await screen.findByRole("button", { name: "OAuth Sign-In" });
+    const signInButton = await screen.findByRole("button", { name: "Add Channel" });
     fireEvent.click(signInButton);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
