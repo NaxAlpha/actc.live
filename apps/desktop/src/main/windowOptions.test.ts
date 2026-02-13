@@ -13,8 +13,8 @@ describe("buildMainWindowOptions", () => {
         width: 1320,
         height: 860
       },
-      minWidth: 1100,
-      minHeight: 700,
+      minWidth: 860,
+      minHeight: 620,
       transparencyDisabled: false,
       preloadPath: "/tmp/preload.cjs"
     });
@@ -45,8 +45,8 @@ describe("buildMainWindowOptions", () => {
         width: 1320,
         height: 860
       },
-      minWidth: 1100,
-      minHeight: 700,
+      minWidth: 860,
+      minHeight: 620,
       transparencyDisabled: true,
       preloadPath: "/tmp/preload.cjs"
     });

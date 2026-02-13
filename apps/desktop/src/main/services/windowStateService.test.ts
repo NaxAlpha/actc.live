@@ -36,8 +36,8 @@ describe("windowStateService", () => {
           height: 1080
         }
       ],
-      minWidth: 1100,
-      minHeight: 700
+      minWidth: 860,
+      minHeight: 620
     });
 
     expect(resolved.bounds).toEqual({
@@ -74,6 +74,46 @@ describe("windowStateService", () => {
     });
   });
 
+  it("clamps tiny stored bounds to the compact minimum size", () => {
+    const resolved = resolveWindowState({
+      storedState: {
+        bounds: {
+          x: -20,
+          y: -30,
+          width: 420,
+          height: 300
+        },
+        isMaximized: false
+      },
+      defaultBounds: {
+        x: 0,
+        y: 0,
+        width: 1180,
+        height: 760
+      },
+      displays: [
+        {
+          x: 0,
+          y: 0,
+          width: 1280,
+          height: 720
+        }
+      ],
+      minWidth: 860,
+      minHeight: 620
+    });
+
+    expect(resolved).toEqual({
+      bounds: {
+        x: 0,
+        y: 0,
+        width: 860,
+        height: 620
+      },
+      isMaximized: false
+    });
+  });
+
   it("persists and reloads saved window state", () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "actc-window-state-"));
     const service = new WindowStateService(tempRoot);
@@ -103,8 +143,8 @@ describe("windowStateService", () => {
           height: 1080
         }
       ],
-      minWidth: 1100,
-      minHeight: 700
+      minWidth: 860,
+      minHeight: 620
     });
 
     expect(loaded).toEqual({
