@@ -8,13 +8,13 @@ import { WindowStateService } from "./services/windowStateService.js";
 import { buildMainWindowOptions } from "./windowOptions.js";
 
 const isDev = !app.isPackaged;
-const MIN_WINDOW_WIDTH = 1100;
-const MIN_WINDOW_HEIGHT = 700;
+const MIN_WINDOW_WIDTH = 860;
+const MIN_WINDOW_HEIGHT = 620;
 const DEFAULT_WINDOW_BOUNDS = {
   x: 0,
   y: 0,
-  width: 1320,
-  height: 860
+  width: 1180,
+  height: 760
 } as const;
 
 const isTransparencyDisabled = process.env.ACTC_DISABLE_WINDOW_TRANSPARENCY === "1";
