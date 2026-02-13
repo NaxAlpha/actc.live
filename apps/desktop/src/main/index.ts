@@ -37,6 +37,14 @@ const createMainWindow = (windowStateService: WindowStateService): BrowserWindow
     })
   );
 
+  if (process.platform === "win32" && !isTransparencyDisabled) {
+    try {
+      (window as unknown as { setBackgroundMaterial: (m: string) => void }).setBackgroundMaterial("mica");
+    } catch {
+      /* Mica requires Windows 11 22H2+ — silent fallback */
+    }
+  }
+
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   const shouldOpenDevTools = process.env.OPEN_DEVTOOLS === "1";
 

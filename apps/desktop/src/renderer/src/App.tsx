@@ -104,7 +104,6 @@ export const App = (): JSX.Element => {
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
-  const [profileLabel, setProfileLabel] = useState<string>("Main Channel");
 
   const [videoPath, setVideoPath] = useState<string>("");
   const [trimStartSec, setTrimStartSec] = useState<string>("0");
@@ -353,6 +352,19 @@ export const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    void (async () => {
+      try {
+        const state = await window.desktopApi.window.getState();
+        if (!state.transparencyEnabled) {
+          document.documentElement.dataset.transparency = "disabled";
+        }
+      } catch {
+        document.documentElement.dataset.transparency = "disabled";
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     if (!selectedProfileId) {
       setReusableBroadcasts([]);
       setSelectedBroadcastId("");
@@ -431,11 +443,7 @@ export const App = (): JSX.Element => {
         throw new Error("Set OAuth credentials before signing in");
       }
 
-      if (!profileLabel.trim()) {
-        throw new Error("Profile label is required");
-      }
-
-      const created = await window.desktopApi.auth.signIn(profileLabel.trim());
+      const created = await window.desktopApi.auth.signIn("Channel");
       setNotice(`Signed in channel: ${created.channelTitle}`);
       await loadProfiles();
       setSelectedProfileId(created.id);
@@ -489,22 +497,20 @@ export const App = (): JSX.Element => {
     }
   };
 
-  const handleRemoveProfile = async (): Promise<void> => {
-    if (!selectedProfileId) {
-      return;
-    }
-
+  const handleRemoveChannel = async (profileId: string): Promise<void> => {
     setBusy(true);
     setError("");
     setNotice("");
 
     try {
-      await window.desktopApi.auth.removeProfile(selectedProfileId);
-      setNotice("Profile removed");
-      setSelectedProfileId("");
+      await window.desktopApi.auth.removeProfile(profileId);
+      setNotice("Channel removed");
+      if (selectedProfileId === profileId) {
+        setSelectedProfileId("");
+      }
       await loadProfiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove profile");
+      setError(err instanceof Error ? err.message : "Failed to remove channel");
     } finally {
       setBusy(false);
     }
@@ -691,6 +697,38 @@ export const App = (): JSX.Element => {
 
   return (
     <div className="app-root">
+      <div className="titlebar" role="banner">
+        <div className="titlebar-drag-region" />
+        <span className="titlebar-title">ACTC Live</span>
+        {windowPlatform === "win" ? (
+          <div className="titlebar-controls">
+            <button
+              type="button"
+              className="titlebar-btn"
+              aria-label="Minimize"
+              onClick={() => void window.desktopApi.window.minimize()}
+            >
+              &#x2013;
+            </button>
+            <button
+              type="button"
+              className="titlebar-btn"
+              aria-label="Maximize"
+              onClick={() => void window.desktopApi.window.toggleMaximize()}
+            >
+              &#x25A1;
+            </button>
+            <button
+              type="button"
+              className="titlebar-btn titlebar-btn-close"
+              aria-label="Close"
+              onClick={() => void window.desktopApi.window.close()}
+            >
+              &#x2715;
+            </button>
+          </div>
+        ) : null}
+      </div>
       <main className="wizard-shell">
         <header className="wizard-header">
           <div className="wizard-header-top">
@@ -775,43 +813,60 @@ export const App = (): JSX.Element => {
               ) : null}
 
               <section className="flow-section">
-                <h2>Channel Profile</h2>
+                <h2>Authenticated Channels</h2>
                 <p className="muted">
                   OAuth status:{" "}
                   {oauthSetup.source === "env" ? "Configured via Environment Variables" : "Configured in App Settings"}
                 </p>
                 {oauthSetup.clientIdHint ? <p className="muted">Client ID: {oauthSetup.clientIdHint}</p> : null}
-                <label>
-                  Profile Label
-                  <input
-                    value={profileLabel}
-                    onChange={(event) => setProfileLabel(event.target.value)}
-                    placeholder="Main Channel"
-                  />
-                </label>
+
+                {profiles.length > 0 ? (
+                  <div className="channel-list">
+                    {profiles.map((profile) => (
+                      <div
+                        key={profile.id}
+                        className={`channel-card${selectedProfileId === profile.id ? " channel-card-selected" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedProfileId(profile.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedProfileId(profile.id);
+                          }
+                        }}
+                      >
+                        <span className="channel-avatar" aria-hidden="true">
+                          {profile.channelTitle.charAt(0).toUpperCase()}
+                        </span>
+                        <div className="channel-info">
+                          <span className="channel-name">{profile.channelTitle}</span>
+                          <span className="channel-id">{profile.channelId}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="channel-remove ghost"
+                          aria-label={`Remove ${profile.channelTitle}`}
+                          disabled={busy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleRemoveChannel(profile.id);
+                          }}
+                        >
+                          &#x2715;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">No channels added yet. Sign in to add one.</p>
+                )}
 
                 <div className="row">
                   <button type="button" disabled={busy || !oauthSetup.configured} onClick={() => void handleSignIn()}>
-                    OAuth Sign-In
-                  </button>
-                  <button type="button" className="ghost" disabled={busy || !selectedProfileId} onClick={() => void handleRemoveProfile()}>
-                    Remove
+                    Add Channel
                   </button>
                 </div>
-
-                <label>
-                  Active Profile
-                  <select value={selectedProfileId} onChange={(event) => setSelectedProfileId(event.target.value)}>
-                    <option value="">Select profile</option>
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.label} ({profile.channelTitle})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {selectedProfile ? <p className="muted">Channel ID: {selectedProfile.channelId}</p> : null}
               </section>
             </>
           ) : null}
