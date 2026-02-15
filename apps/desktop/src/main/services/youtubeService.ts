@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   NewBroadcastInput,
   ReusableBroadcast,
@@ -11,12 +9,20 @@ import { google, type youtube_v3 } from "googleapis";
 
 import type { OauthService } from "./oauthService.js";
 
-const LIVE_STREAM_PART = ["id", "cdn", "status", "snippet"] as const;
+const LIVE_STREAM_PART = ["id", "cdn", "status", "snippet", "contentDetails"] as const;
+const LIVE_STREAM_PART_MINIMAL = ["id", "cdn", "status", "snippet"] as const;
 const LIVE_BROADCAST_PART = ["id", "snippet", "status", "contentDetails"] as const;
+const LIVE_BROADCAST_PART_MINIMAL = ["id", "snippet", "status"] as const;
 
 export type BroadcastProvisionInput = {
   profileId: string;
   config: SessionConfig;
+};
+
+export type BroadcastLifecycleProgress = {
+  streamState: "ready" | "testing" | "live" | "complete";
+  attemptedTesting: boolean;
+  attemptedLive: boolean;
 };
 
 export class YoutubeService {
@@ -74,25 +80,41 @@ export class YoutubeService {
     const youtube = await this.getYoutubeClient(profileId);
 
     try {
-      const response = await youtube.liveBroadcasts.insert({
-        part: [...LIVE_BROADCAST_PART],
-        requestBody: {
-          snippet: {
-            title: payload.title,
-            description: payload.description ?? null,
-            scheduledStartTime: payload.scheduledStartIsoUtc
-          },
-          status: {
-            privacyStatus: payload.privacyStatus,
-            selfDeclaredMadeForKids: false
-          },
-          contentDetails: {
-            latencyPreference: payload.latencyPreference,
-            enableAutoStart: false,
-            enableAutoStop: false
-          }
+      const requestBodyBase = {
+        snippet: {
+          title: payload.title,
+          description: payload.description ?? null,
+          scheduledStartTime: payload.scheduledStartIsoUtc
+        },
+        status: {
+          privacyStatus: payload.privacyStatus,
+          selfDeclaredMadeForKids: false
         }
-      });
+      };
+
+      const response = await (async () => {
+        try {
+          return await youtube.liveBroadcasts.insert({
+            part: [...LIVE_BROADCAST_PART],
+            requestBody: {
+              ...requestBodyBase,
+              contentDetails: {
+                latencyPreference: payload.latencyPreference
+              }
+            }
+          });
+        } catch (error) {
+          if (!this.isContentDetailsCompatibilityError(error)) {
+            throw error;
+          }
+
+          // Some channels reject contentDetails settings with cryptic payload errors.
+          return youtube.liveBroadcasts.insert({
+            part: [...LIVE_BROADCAST_PART_MINIMAL],
+            requestBody: requestBodyBase
+          });
+        }
+      })();
 
       const created = response.data;
 
@@ -135,23 +157,39 @@ export class YoutubeService {
         broadcastId = input.config.existingBroadcastId;
       }
 
-      const streamName = `actc-${randomUUID().slice(0, 12)}`;
-      const streamInsert = await youtube.liveStreams.insert({
-        part: [...LIVE_STREAM_PART],
-        requestBody: {
-          snippet: {
-            title: `ACTC Stream ${new Date().toISOString()}`
-          },
-          cdn: {
-            frameRate: "30fps",
-            ingestionType: "rtmp",
-            resolution: "1080p"
-          },
-          contentDetails: {
-            isReusable: false
-          }
+      const streamRequestBody = {
+        snippet: {
+          title: `ACTC Stream ${new Date().toISOString()}`
+        },
+        cdn: {
+          frameRate: "30fps",
+          ingestionType: "rtmp",
+          resolution: "1080p"
         }
-      });
+      };
+
+      const streamInsert = await (async () => {
+        try {
+          return await youtube.liveStreams.insert({
+            part: [...LIVE_STREAM_PART],
+            requestBody: {
+              ...streamRequestBody,
+              contentDetails: {
+                isReusable: false
+              }
+            }
+          });
+        } catch (error) {
+          if (!this.isContentDetailsCompatibilityError(error)) {
+            throw error;
+          }
+
+          return youtube.liveStreams.insert({
+            part: [...LIVE_STREAM_PART_MINIMAL],
+            requestBody: streamRequestBody
+          });
+        }
+      })();
 
       const stream = streamInsert.data;
 
@@ -169,7 +207,7 @@ export class YoutubeService {
         broadcastId,
         streamId: stream.id,
         ingestionAddress: stream.cdn.ingestionInfo.ingestionAddress,
-        streamName: stream.cdn.ingestionInfo.streamName ?? streamName
+        streamName: stream.cdn.ingestionInfo.streamName
       };
     } catch (error) {
       throw this.normalizeYoutubeError(error);
@@ -199,7 +237,11 @@ export class YoutubeService {
     });
 
     const item = response.data.items?.[0];
-    const status = item?.status?.streamStatus;
+    if (!item?.id) {
+      throw new Error(`YouTube did not return stream state for stream ${streamId}`);
+    }
+
+    const status = (item.status?.streamStatus ?? "").toLowerCase();
 
     if (status === "active") {
       return "live";
@@ -209,29 +251,52 @@ export class YoutubeService {
       return "ready";
     }
 
-    return "testing";
+    if (status === "complete") {
+      return "complete";
+    }
+
+    // created/inactive/error are not yet active ingest states.
+    return "ready";
   }
 
-  async progressBroadcastLifecycle(profileId: string, broadcastId: string, streamId: string): Promise<void> {
+  async progressBroadcastLifecycle(
+    profileId: string,
+    broadcastId: string,
+    streamId: string
+  ): Promise<BroadcastLifecycleProgress> {
+    let attemptedTesting = false;
+    let attemptedLive = false;
     const streamState = await this.pollStreamState(profileId, streamId);
 
-    if (canTransitionStream(streamState, "testing")) {
+    if (streamState === "ready" && canTransitionStream(streamState, "testing")) {
       try {
         await this.transitionToTesting(profileId, broadcastId);
+        attemptedTesting = true;
       } catch (_error) {
-        // YouTube may reject testing transition if broadcast is already in test/live state.
+        if (!this.isIgnorableTransitionError(_error)) {
+          throw _error;
+        }
       }
     }
 
     const nextState = await this.pollStreamState(profileId, streamId);
 
-    if (canTransitionStream(nextState, "live")) {
+    if (nextState === "live") {
       try {
         await this.transitionToLive(profileId, broadcastId);
+        attemptedLive = true;
       } catch (_error) {
-        // Transitions may race with YouTube's internal ingest readiness.
+        if (!this.isIgnorableTransitionError(_error)) {
+          throw _error;
+        }
       }
     }
+
+    return {
+      streamState: nextState,
+      attemptedTesting,
+      attemptedLive
+    };
   }
 
   private async transitionBroadcast(
@@ -303,6 +368,12 @@ export class YoutubeService {
       );
     }
 
+    if (this.isContentDetailsCompatibilityError(error)) {
+      return new Error(
+        "YouTube rejected one or more advanced stream settings for this channel/broadcast. Try again, or switch to a newly created broadcast if you were reusing an existing one."
+      );
+    }
+
     return error instanceof Error ? error : new Error(details.message);
   }
 
@@ -346,5 +417,23 @@ export class YoutubeService {
     }
 
     return { message, reasons };
+  }
+
+  private isContentDetailsCompatibilityError(error: unknown): boolean {
+    const details = this.extractApiErrorDetails(error);
+    const combined = [details.message, ...details.reasons].join(" ").toLowerCase();
+
+    return (
+      combined.includes("content_details") ||
+      combined.includes("contentdetails") ||
+      details.reasons.includes("invalidlatencypreferenceoptions")
+    );
+  }
+
+  private isIgnorableTransitionError(error: unknown): boolean {
+    const details = this.extractApiErrorDetails(error);
+    const combined = [details.message, ...details.reasons].join(" ").toLowerCase();
+
+    return combined.includes("invalid transition") || combined.includes("already");
   }
 }

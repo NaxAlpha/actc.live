@@ -4,7 +4,7 @@ const transitions: Record<SessionState, SessionState[]> = {
   idle: ["preparing-clip", "failed"],
   "preparing-clip": ["provisioning-youtube", "failed"],
   "provisioning-youtube": ["starting-ffmpeg", "failed"],
-  "starting-ffmpeg": ["testing", "failed"],
+  "starting-ffmpeg": ["testing", "stopping", "failed"],
   testing: ["live", "stopping", "failed"],
   live: ["stopping", "failed"],
   stopping: ["completed", "failed"],

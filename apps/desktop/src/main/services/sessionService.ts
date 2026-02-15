@@ -23,6 +23,7 @@ type ActiveSession = {
   clipPath: string;
   broadcastId?: string;
   streamId?: string;
+  lastObservedStreamState?: "ready" | "testing" | "live" | "complete";
   ffmpegChild?: ReturnType<FfmpegService["startLoopStream"]>;
   stopTimer?: NodeJS.Timeout;
   pollTimer?: NodeJS.Timeout;
@@ -114,13 +115,38 @@ export class SessionService {
       active.pollTimer = setInterval(() => {
         void this.youtubeService
           .progressBroadcastLifecycle(parsed.profileId, provisioned.broadcastId, provisioned.streamId)
+          .then((lifecycle) => {
+            const current = this.activeSessions.get(sessionId);
+            if (!current || current.finalized || current.stopping) {
+              return;
+            }
+
+            if (current.lastObservedStreamState !== lifecycle.streamState) {
+              current.lastObservedStreamState = lifecycle.streamState;
+              this.record(
+                sessionId,
+                "info",
+                "YOUTUBE_STREAM_STATE",
+                `YouTube ingest state is ${lifecycle.streamState}`
+              );
+            }
+
+            if (lifecycle.streamState === "live") {
+              this.transition(sessionId, "testing");
+              this.transition(sessionId, "live");
+              return;
+            }
+
+            if (lifecycle.attemptedTesting) {
+              this.transition(sessionId, "testing");
+            }
+          })
           .catch((error: Error) => {
             this.record(sessionId, "warn", "YOUTUBE_POLL_WARN", error.message);
           });
       }, 7000);
 
       this.activeSessions.set(sessionId, active);
-      this.transition(sessionId, "testing");
       this.record(sessionId, "info", "SESSION_RUNNING", `Session live timer active until ${stopAtIsoUtc}`);
 
       return {
