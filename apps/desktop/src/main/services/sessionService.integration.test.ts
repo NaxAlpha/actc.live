@@ -1,4 +1,7 @@
+import fs from "node:fs";
 import { EventEmitter } from "node:events";
+import os from "node:os";
+import path from "node:path";
 
 import type { SessionConfig, SessionEvent, SessionSummary } from "@actc/shared";
 import { describe, expect, it } from "vitest";
@@ -94,16 +97,12 @@ class FakeRepository {
 }
 
 class FakeFfmpegService {
-  async trimClip(): Promise<void> {
-    return;
-  }
-
   async probeDurationSeconds(): Promise<number> {
     return 4;
   }
 
   startLoopStream(_input: {
-    clipPath: string;
+    inputPath: string;
     ingestUrl: string;
     durationSec: number;
     onLog: (line: string) => void;
@@ -156,18 +155,21 @@ class FakeYoutubeService {
 describe("SessionService integration", () => {
   it("starts and allows manual stop", async () => {
     const repo = new FakeRepository();
+    const sourceVideoPath = path.join(
+      os.tmpdir(),
+      `actc-session-service-source-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`
+    );
+    fs.writeFileSync(sourceVideoPath, "fixture-video");
 
     const service = new SessionService(
       repo as never,
       new FakeFfmpegService() as never,
-      new FakeYoutubeService() as never,
-      process.cwd()
+      new FakeYoutubeService() as never
     );
 
     const result = await service.start({
       profileId: "profile-1",
-      videoPath: "/tmp/video.mp4",
-      trim: { startSec: 0, endSec: 10 },
+      videoPath: sourceVideoPath,
       stop: {
         maxDurationSec: 300,
         strategy: "earliest-wins"
@@ -187,5 +189,7 @@ describe("SessionService integration", () => {
 
     const state = service.getState(result.sessionId);
     expect(state.summary?.state).toBe("completed");
+    expect(fs.existsSync(sourceVideoPath)).toBe(true);
+    fs.rmSync(sourceVideoPath, { force: true });
   });
 });

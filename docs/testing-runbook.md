@@ -17,9 +17,8 @@
 ## Non-credential local smoke
 1. Launch app: `npm run dev -w @actc/desktop`
 2. Pick local video.
-3. Configure trim: `start=0`, `end=10`.
-4. Configure stop: `maxRepeats=3`.
-5. Validate config form behavior and session event rendering.
+3. Configure stop: `maxRepeats=3`.
+4. Validate config form behavior and session event rendering.
 
 ## Credentialed live test checklist
 1. Sign in to real YouTube channel.

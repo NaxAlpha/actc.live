@@ -106,8 +106,6 @@ export const App = (): JSX.Element => {
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 
   const [videoPath, setVideoPath] = useState<string>("");
-  const [trimStartSec, setTrimStartSec] = useState<string>("0");
-  const [trimEndSec, setTrimEndSec] = useState<string>("15");
 
   const [maxRepeats, setMaxRepeats] = useState<string>("3");
   const [maxDurationSec, setMaxDurationSec] = useState<string>("");
@@ -141,37 +139,6 @@ export const App = (): JSX.Element => {
 
   const isSessionActive =
     sessionSummary ? !["completed", "failed"].includes(sessionSummary.state) : false;
-
-  const trimValidation = useMemo<ValidationResult>(() => {
-    const start = Number.parseFloat(trimStartSec);
-    const end = Number.parseFloat(trimEndSec);
-
-    if (!Number.isFinite(start) || !Number.isFinite(end)) {
-      return {
-        valid: false,
-        detail: "Trim start and end must be numeric."
-      };
-    }
-
-    if (start < 0) {
-      return {
-        valid: false,
-        detail: "Trim start cannot be negative."
-      };
-    }
-
-    if (end <= start) {
-      return {
-        valid: false,
-        detail: "Trim end must be greater than trim start."
-      };
-    }
-
-    return {
-      valid: true,
-      detail: `Clip ${start}s to ${end}s is valid.`
-    };
-  }, [trimEndSec, trimStartSec]);
 
   const stopValidation = useMemo<ValidationResult>(() => {
     const parsedMaxRepeats = numberOrUndefined(maxRepeats);
@@ -228,7 +195,7 @@ export const App = (): JSX.Element => {
 
   const stepValidity = useMemo<StepValidityMap>(() => {
     const credentials = oauthSetup.configured && Boolean(selectedProfileId);
-    const media = Boolean(videoPath) && trimValidation.valid;
+    const media = Boolean(videoPath);
     const broadcast = stopValidation.valid && broadcastValidation.valid;
 
     return {
@@ -238,7 +205,7 @@ export const App = (): JSX.Element => {
       preflight: credentials && media && broadcast,
       monitor: Boolean(sessionId)
     };
-  }, [broadcastValidation.valid, oauthSetup.configured, selectedProfileId, sessionId, stopValidation.valid, trimValidation.valid, videoPath]);
+  }, [broadcastValidation.valid, oauthSetup.configured, selectedProfileId, sessionId, stopValidation.valid, videoPath]);
 
   const stepUnlocked = useMemo<Record<WizardStepId, boolean>>(
     () => ({
@@ -292,13 +259,6 @@ export const App = (): JSX.Element => {
         blocking: true
       },
       {
-        id: "trim",
-        label: "Trim range valid",
-        detail: trimValidation.detail,
-        status: trimValidation.valid ? "pass" : "fail",
-        blocking: true
-      },
-      {
         id: "stop",
         label: "Stop strategy defined",
         detail: stopValidation.detail,
@@ -322,7 +282,7 @@ export const App = (): JSX.Element => {
         blocking: false
       }
     ],
-    [broadcastValidation, isSessionActive, oauthSetup.configured, oauthSetup.source, selectedProfile, stopValidation, trimValidation, videoPath]
+    [broadcastValidation, isSessionActive, oauthSetup.configured, oauthSetup.source, selectedProfile, stopValidation, videoPath]
   );
 
   const blockingChecks = useMemo(
@@ -524,15 +484,6 @@ export const App = (): JSX.Element => {
   };
 
   const buildConfig = (): SessionConfig => {
-    const trim = {
-      startSec: Number.parseFloat(trimStartSec),
-      endSec: Number.parseFloat(trimEndSec)
-    };
-
-    if (!Number.isFinite(trim.startSec) || !Number.isFinite(trim.endSec) || trim.endSec <= trim.startSec) {
-      throw new Error("Trim start and end must be valid numbers and end must be greater than start");
-    }
-
     const stop: SessionConfig["stop"] = {
       strategy: "earliest-wins" as const
     };
@@ -577,7 +528,6 @@ export const App = (): JSX.Element => {
       return {
         profileId: selectedProfileId,
         videoPath,
-        trim,
         stop,
         broadcastMode,
         newBroadcast
@@ -591,7 +541,6 @@ export const App = (): JSX.Element => {
     return {
       profileId: selectedProfileId,
       videoPath,
-      trim,
       stop,
       broadcastMode,
       existingBroadcastId: selectedBroadcastId
@@ -873,7 +822,7 @@ export const App = (): JSX.Element => {
 
           {activeStep === "media" ? (
             <section className="flow-section">
-              <h2>Video + Trim</h2>
+              <h2>Video Source</h2>
               <label>
                 Local Video Path
                 <div className="row row-fill">
@@ -887,33 +836,6 @@ export const App = (): JSX.Element => {
                   </button>
                 </div>
               </label>
-
-              <div className="two-col">
-                <label>
-                  Trim Start (sec)
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={trimStartSec}
-                    onChange={(event) => setTrimStartSec(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Trim End (sec)
-                  <input
-                    type="number"
-                    min={0.1}
-                    step={0.1}
-                    value={trimEndSec}
-                    onChange={(event) => setTrimEndSec(event.target.value)}
-                  />
-                </label>
-              </div>
-
-              <p className={`validation ${trimValidation.valid ? "validation-pass" : "validation-fail"}`}>
-                {trimValidation.detail}
-              </p>
             </section>
           ) : null}
 

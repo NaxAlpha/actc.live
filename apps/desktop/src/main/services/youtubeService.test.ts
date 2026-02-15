@@ -115,10 +115,6 @@ describe("YoutubeService", () => {
         config: {
           profileId: "profile-1",
           videoPath: "/tmp/video.mp4",
-          trim: {
-            startSec: 0,
-            endSec: 5
-          },
           stop: {
             strategy: "earliest-wins",
             maxRepeats: 1
@@ -193,10 +189,6 @@ describe("YoutubeService", () => {
       config: {
         profileId: "profile-1",
         videoPath: "/tmp/video.mp4",
-        trim: {
-          startSec: 0,
-          endSec: 5
-        },
         stop: {
           strategy: "earliest-wins",
           maxRepeats: 1

@@ -136,7 +136,7 @@ describe("App installer wizard", () => {
     expect((continueFromCredentials as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(continueFromCredentials);
 
-    await screen.findByRole("heading", { name: "Video + Trim" });
+    await screen.findByRole("heading", { level: 2, name: "Video Source" });
     const videoPathInput = await screen.findByPlaceholderText("/path/to/video.mp4");
     fireEvent.change(videoPathInput, {
       target: {

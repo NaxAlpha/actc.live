@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 
-import { redactSensitive, type TrimWindow } from "@actc/shared";
+import { redactSensitive } from "@actc/shared";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 
@@ -11,41 +11,15 @@ export type RuntimeFfmpegPaths = {
 };
 
 export type StreamProcessOptions = {
-  clipPath: string;
+  inputPath: string;
   ingestUrl: string;
   durationSec: number;
   onLog: (line: string) => void;
   onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
 };
 
-export const buildTrimArgs = (inputPath: string, outputPath: string, trim: TrimWindow): string[] => {
-  return [
-    "-y",
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-ss",
-    trim.startSec.toString(),
-    "-to",
-    trim.endSec.toString(),
-    "-i",
-    inputPath,
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-crf",
-    "23",
-    "-c:a",
-    "aac",
-    "-b:a",
-    "128k",
-    outputPath
-  ];
-};
-
 export const buildLoopStreamArgs = (
-  clipPath: string,
+  inputPath: string,
   ingestUrl: string,
   durationSec: number
 ): string[] => {
@@ -57,7 +31,7 @@ export const buildLoopStreamArgs = (
     "-stream_loop",
     "-1",
     "-i",
-    clipPath,
+    inputPath,
     "-t",
     durationSec.toString(),
     "-c:v",
@@ -145,33 +119,9 @@ export class FfmpegService {
     });
   }
 
-  async trimClip(inputPath: string, outputPath: string, trim: TrimWindow): Promise<void> {
-    const { ffmpegPath } = this.resolveBinaries();
-    const args = buildTrimArgs(inputPath, outputPath, trim);
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(ffmpegPath, args);
-      let stderr = "";
-
-      child.stderr.on("data", (chunk) => {
-        stderr += chunk.toString();
-      });
-
-      child.once("error", reject);
-      child.once("close", (code) => {
-        if (code !== 0) {
-          reject(new Error(`ffmpeg trim failed (${code}): ${stderr.trim()}`));
-          return;
-        }
-
-        resolve();
-      });
-    });
-  }
-
   startLoopStream(options: StreamProcessOptions): ChildProcess {
     const { ffmpegPath } = this.resolveBinaries();
-    const args = buildLoopStreamArgs(options.clipPath, options.ingestUrl, options.durationSec);
+    const args = buildLoopStreamArgs(options.inputPath, options.ingestUrl, options.durationSec);
 
     const child = spawn(ffmpegPath, args, {
       stdio: ["ignore", "pipe", "pipe"]

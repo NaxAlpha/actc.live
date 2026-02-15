@@ -36,12 +36,7 @@ export const createAppContext = async (): Promise<AppContext> => {
   const sessionRepository = new SessionRepository(db);
   const ffmpegService = new FfmpegService({ ffmpegResourceDir: runtimePaths.ffmpegResourceDir });
 
-  const sessionService = new SessionService(
-    sessionRepository,
-    ffmpegService,
-    youtubeService,
-    runtimePaths.tempDir
-  );
+  const sessionService = new SessionService(sessionRepository, ffmpegService, youtubeService);
 
   return {
     db,

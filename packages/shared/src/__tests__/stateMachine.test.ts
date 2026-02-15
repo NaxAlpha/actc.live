@@ -4,7 +4,9 @@ import { canTransitionSession, canTransitionStream } from "../stateMachine.js";
 
 describe("state machines", () => {
   it("allows expected session transitions", () => {
+    expect(canTransitionSession("idle", "preparing-media")).toBe(true);
     expect(canTransitionSession("testing", "live")).toBe(true);
+    expect(canTransitionSession("idle", "preparing-clip" as never)).toBe(false);
     expect(canTransitionSession("completed", "live")).toBe(false);
   });
 
