@@ -131,4 +131,153 @@ describe("YoutubeService", () => {
       "This channel is not currently eligible to go live via API. In YouTube Studio, verify Live is enabled, phone verification is complete, no active live restrictions exist, and if recently enabled wait up to 24 hours."
     );
   });
+
+  it("retries createDraftBroadcast without contentDetails when YouTube rejects content settings", async () => {
+    mocks.insertBroadcast
+      .mockRejectedValueOnce(createApiError("'content_details'"))
+      .mockResolvedValueOnce({
+        data: {
+          id: "broadcast-1",
+          snippet: {
+            title: "Fallback Broadcast",
+            scheduledStartTime: "2026-02-11T21:00:00.000Z"
+          },
+          status: {
+            privacyStatus: "unlisted"
+          }
+        }
+      });
+
+    const service = new YoutubeService({
+      buildOAuthClientForProfile: vi.fn().mockResolvedValue({})
+    } as never);
+
+    const result = await service.createDraftBroadcast("profile-1", {
+      title: "Fallback Broadcast",
+      privacyStatus: "unlisted",
+      scheduledStartIsoUtc: "2026-02-11T21:00:00.000Z",
+      latencyPreference: "low"
+    });
+
+    expect(result.id).toBe("broadcast-1");
+    expect(mocks.insertBroadcast).toHaveBeenCalledTimes(2);
+    expect(mocks.insertBroadcast.mock.calls[0]?.[0].requestBody.contentDetails).toEqual({
+      latencyPreference: "low"
+    });
+    expect(mocks.insertBroadcast.mock.calls[1]?.[0].part).toEqual(["id", "snippet", "status"]);
+    expect(mocks.insertBroadcast.mock.calls[1]?.[0].requestBody.contentDetails).toBeUndefined();
+  });
+
+  it("retries stream insert without contentDetails when YouTube rejects content settings", async () => {
+    mocks.insertStream
+      .mockRejectedValueOnce(createApiError("'content_details'"))
+      .mockResolvedValueOnce({
+        data: {
+          id: "stream-1",
+          cdn: {
+            ingestionInfo: {
+              ingestionAddress: "rtmps://a.rtmp.youtube.com/live2",
+              streamName: "stream-key"
+            }
+          }
+        }
+      });
+    mocks.bindBroadcast.mockResolvedValueOnce({ data: {} });
+
+    const service = new YoutubeService({
+      buildOAuthClientForProfile: vi.fn().mockResolvedValue({})
+    } as never);
+
+    const result = await service.provisionForSession({
+      profileId: "profile-1",
+      config: {
+        profileId: "profile-1",
+        videoPath: "/tmp/video.mp4",
+        trim: {
+          startSec: 0,
+          endSec: 5
+        },
+        stop: {
+          strategy: "earliest-wins",
+          maxRepeats: 1
+        },
+        broadcastMode: "reuse-existing",
+        existingBroadcastId: "broadcast-1"
+      }
+    });
+
+    expect(result.streamId).toBe("stream-1");
+    expect(mocks.insertStream).toHaveBeenCalledTimes(2);
+    expect(mocks.insertStream.mock.calls[0]?.[0].requestBody.contentDetails).toEqual({
+      isReusable: false
+    });
+    expect(mocks.insertStream.mock.calls[1]?.[0].part).toEqual(["id", "cdn", "status", "snippet"]);
+    expect(mocks.insertStream.mock.calls[1]?.[0].requestBody.contentDetails).toBeUndefined();
+  });
+
+  it("only attempts testing transition while ingest is ready", async () => {
+    mocks.listStreams.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "stream-1",
+            status: {
+              streamStatus: "ready"
+            }
+          }
+        ]
+      }
+    });
+
+    const service = new YoutubeService({
+      buildOAuthClientForProfile: vi.fn().mockResolvedValue({})
+    } as never);
+
+    const result = await service.progressBroadcastLifecycle("profile-1", "broadcast-1", "stream-1");
+
+    expect(result).toEqual({
+      streamState: "ready",
+      attemptedTesting: true,
+      attemptedLive: false
+    });
+    expect(mocks.transitionBroadcast).toHaveBeenCalledTimes(1);
+    expect(mocks.transitionBroadcast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        broadcastStatus: "testing"
+      })
+    );
+  });
+
+  it("attempts live transition only after ingest is active", async () => {
+    mocks.listStreams.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "stream-1",
+            status: {
+              streamStatus: "active"
+            }
+          }
+        ]
+      }
+    });
+
+    const service = new YoutubeService({
+      buildOAuthClientForProfile: vi.fn().mockResolvedValue({})
+    } as never);
+
+    const result = await service.progressBroadcastLifecycle("profile-1", "broadcast-1", "stream-1");
+
+    expect(result).toEqual({
+      streamState: "live",
+      attemptedTesting: false,
+      attemptedLive: true
+    });
+    expect(mocks.transitionBroadcast).toHaveBeenCalledTimes(1);
+    expect(mocks.transitionBroadcast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        broadcastStatus: "live"
+      })
+    );
+  });
 });

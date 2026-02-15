@@ -136,8 +136,16 @@ class FakeYoutubeService {
     };
   }
 
-  async progressBroadcastLifecycle(): Promise<void> {
-    return;
+  async progressBroadcastLifecycle(): Promise<{
+    streamState: "ready" | "testing" | "live" | "complete";
+    attemptedTesting: boolean;
+    attemptedLive: boolean;
+  }> {
+    return {
+      streamState: "ready",
+      attemptedTesting: false,
+      attemptedLive: false
+    };
   }
 
   async transitionToComplete(): Promise<void> {

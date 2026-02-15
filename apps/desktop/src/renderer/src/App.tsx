@@ -120,7 +120,7 @@ export const App = (): JSX.Element => {
   const [newTitle, setNewTitle] = useState<string>("ACTC Loop Stream");
   const [newDescription, setNewDescription] = useState<string>("");
   const [newPrivacyStatus, setNewPrivacyStatus] = useState<"private" | "unlisted" | "public">("unlisted");
-  const [newScheduledStart, setNewScheduledStart] = useState<string>(nowPlusMinutes(10));
+  const [newScheduledStart, setNewScheduledStart] = useState<string>(nowPlusMinutes(1));
 
   const [activeStep, setActiveStep] = useState<WizardStepId>("credentials");
 
