@@ -23,5 +23,4 @@
 - Implementation avoids unnecessary retries and records warning events on transient transition failures.
 
 ## Notes
-- Time-trim is local FFmpeg behavior, not a YouTube API capability.
 - Ingest URL is derived from `liveStreams.cdn.ingestionInfo`.

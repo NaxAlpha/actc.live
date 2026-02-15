@@ -18,8 +18,8 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
   },
   {
     id: "media",
-    title: "Video & Trim",
-    subtitle: "Select media and clip range"
+    title: "Video Source",
+    subtitle: "Select media file"
   },
   {
     id: "broadcast",

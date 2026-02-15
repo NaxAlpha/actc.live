@@ -52,7 +52,7 @@ Artifacts are produced in `/Users/nax/Documents/actc.live/apps/desktop/release`.
 ## Implemented v1 capabilities
 - OAuth sign-in and multi-profile channel management
 - Create-new or reuse-existing YouTube broadcast flows
-- Local video selection and time-trim window
+- Local video selection
 - Stop conditions: max repeats, max duration, and absolute end time (earliest wins)
 - Session orchestration with event logs and persisted summaries
 - FFmpeg/ffprobe resource preparation for packaged app

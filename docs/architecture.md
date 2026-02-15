@@ -7,11 +7,11 @@
 
 ## Core flow
 1. User authenticates channel profile via OAuth (`auth.signIn`).
-2. User configures stream session: local video + trim + stop conditions + broadcast mode.
-3. Main process validates config, trims source video, probes duration, computes earliest stop deadline.
+2. User configures stream session: local video + stop conditions + broadcast mode.
+3. Main process validates config, probes source video duration, computes earliest stop deadline.
 4. YouTube provisioning creates/attaches broadcast and stream, then returns ingest destination.
-5. FFmpeg loops trimmed clip to YouTube RTMP ingest until earliest stop condition is reached.
-6. Session service transitions stream to complete, persists summary/events, and cleans up temporary files.
+5. FFmpeg loops the selected source video to YouTube RTMP ingest until earliest stop condition is reached.
+6. Session service transitions stream to complete and persists summary/events.
 
 ## Security model
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`.

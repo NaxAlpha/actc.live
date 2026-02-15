@@ -1,15 +1,5 @@
 import { z } from "zod";
 
-export const trimWindowSchema = z
-  .object({
-    startSec: z.number().min(0),
-    endSec: z.number().positive()
-  })
-  .refine((value) => value.endSec > value.startSec, {
-    message: "trim.endSec must be greater than trim.startSec",
-    path: ["endSec"]
-  });
-
 export const stopConditionsSchema = z
   .object({
     maxRepeats: z.number().int().positive().optional(),
@@ -36,12 +26,12 @@ export const sessionConfigSchema = z
   .object({
     profileId: z.string().min(1),
     videoPath: z.string().min(1),
-    trim: trimWindowSchema,
     stop: stopConditionsSchema,
     broadcastMode: z.enum(["create-new", "reuse-existing"]),
     existingBroadcastId: z.string().optional(),
     newBroadcast: newBroadcastSchema.optional()
   })
+  .strict()
   .superRefine((value, ctx) => {
     if (value.broadcastMode === "create-new" && !value.newBroadcast) {
       ctx.addIssue({

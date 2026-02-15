@@ -12,7 +12,6 @@ describe("sessionConfigSchema", () => {
     const parsed = sessionConfigSchema.parse({
       profileId: "p1",
       videoPath: "/tmp/video.mp4",
-      trim: { startSec: 0, endSec: 15 },
       stop: baseStop,
       broadcastMode: "create-new",
       newBroadcast: {
@@ -31,10 +30,22 @@ describe("sessionConfigSchema", () => {
       sessionConfigSchema.parse({
         profileId: "p1",
         videoPath: "/tmp/video.mp4",
-        trim: { startSec: 0, endSec: 15 },
         stop: baseStop,
         broadcastMode: "reuse-existing"
       })
     ).toThrow(/existingBroadcastId/i);
+  });
+
+  it("rejects unknown trim field", () => {
+    expect(() =>
+      sessionConfigSchema.parse({
+        profileId: "p1",
+        videoPath: "/tmp/video.mp4",
+        stop: baseStop,
+        broadcastMode: "reuse-existing",
+        existingBroadcastId: "broadcast-1",
+        trim: { startSec: 0, endSec: 15 }
+      })
+    ).toThrow(/unrecognized key/i);
   });
 });

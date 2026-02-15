@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { EventEmitter } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -20,7 +18,6 @@ import type { YoutubeService } from "./youtubeService.js";
 type ActiveSession = {
   id: string;
   profileId: string;
-  clipPath: string;
   broadcastId?: string;
   streamId?: string;
   lastObservedStreamState?: "ready" | "testing" | "live" | "complete";
@@ -38,8 +35,7 @@ export class SessionService {
   constructor(
     private readonly repository: SessionRepository,
     private readonly ffmpegService: FfmpegService,
-    private readonly youtubeService: YoutubeService,
-    private readonly tempDir: string
+    private readonly youtubeService: YoutubeService
   ) {}
 
   async start(configInput: SessionConfig): Promise<StartSessionResult> {
@@ -48,13 +44,10 @@ export class SessionService {
     const sessionId = summary.id;
 
     try {
-      this.transition(sessionId, "preparing-clip");
+      this.transition(sessionId, "preparing-media");
       this.record(sessionId, "info", "SESSION_START", "Session initialization started");
 
-      const clipPath = path.join(this.tempDir, `${sessionId}-trim.mp4`);
-      await this.ffmpegService.trimClip(parsed.videoPath, clipPath, parsed.trim);
-
-      const clipDurationSec = await this.ffmpegService.probeDurationSeconds(clipPath);
+      const clipDurationSec = await this.ffmpegService.probeDurationSeconds(parsed.videoPath);
       const durationComputation = computeEffectiveDuration({
         clipDurationSec,
         stop: parsed.stop
@@ -84,7 +77,7 @@ export class SessionService {
       this.record(sessionId, "info", "FFMPEG_START", "Starting stream process");
 
       const ffmpegChild = this.ffmpegService.startLoopStream({
-        clipPath,
+        inputPath: parsed.videoPath,
         ingestUrl,
         durationSec: effectiveDurationSec,
         onLog: (line) => {
@@ -100,7 +93,6 @@ export class SessionService {
       const active: ActiveSession = {
         id: sessionId,
         profileId: parsed.profileId,
-        clipPath,
         broadcastId: provisioned.broadcastId,
         streamId: provisioned.streamId,
         ffmpegChild,
@@ -306,10 +298,6 @@ export class SessionService {
 
     if (active.pollTimer) {
       clearInterval(active.pollTimer);
-    }
-
-    if (fs.existsSync(active.clipPath)) {
-      fs.rmSync(active.clipPath, { force: true });
     }
 
     this.activeSessions.delete(active.id);

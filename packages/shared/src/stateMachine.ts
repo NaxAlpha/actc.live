@@ -1,8 +1,8 @@
 import type { SessionState, StreamLifecycleState } from "./types.js";
 
 const transitions: Record<SessionState, SessionState[]> = {
-  idle: ["preparing-clip", "failed"],
-  "preparing-clip": ["provisioning-youtube", "failed"],
+  idle: ["preparing-media", "failed"],
+  "preparing-media": ["provisioning-youtube", "failed"],
   "provisioning-youtube": ["starting-ffmpeg", "failed"],
   "starting-ffmpeg": ["testing", "stopping", "failed"],
   testing: ["live", "stopping", "failed"],

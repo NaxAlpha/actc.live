@@ -7,11 +7,6 @@ export type StopConditions = {
   strategy: StopStrategy;
 };
 
-export type TrimWindow = {
-  startSec: number;
-  endSec: number;
-};
-
 export type BroadcastMode = "create-new" | "reuse-existing";
 
 export type NewBroadcastInput = {
@@ -25,7 +20,6 @@ export type NewBroadcastInput = {
 export type SessionConfig = {
   profileId: string;
   videoPath: string;
-  trim: TrimWindow;
   stop: StopConditions;
   broadcastMode: BroadcastMode;
   existingBroadcastId?: string | undefined;
@@ -34,7 +28,7 @@ export type SessionConfig = {
 
 export type SessionState =
   | "idle"
-  | "preparing-clip"
+  | "preparing-media"
   | "provisioning-youtube"
   | "starting-ffmpeg"
   | "testing"
